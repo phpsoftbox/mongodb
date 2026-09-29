@@ -13,6 +13,11 @@
 - включает `DocumentHydrator` и `DocumentRepository` для типизированной работы с документами;
 - включает слой миграций (`MigrationInterface`, `Migrator`, `MongoMigrationStateStore`, `FileMigrationLoader`, `MigrationCreator`, `MigrationSchema`).
 
+## Requirements
+
+`ext-mongodb` `^2.4` и `mongodb/mongodb` `^2.4.1`: более ранние версии библиотеки закрыты security advisory
+(`PKSA-61k5-cqr9-b8b4`) и не устанавливаются.
+
 ## Configuration
 
 ```php
