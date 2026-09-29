@@ -4,10 +4,20 @@ declare(strict_types=1);
 
 namespace PhpSoftBox\MongoDb\Tests\Query;
 
+use DateTimeImmutable;
 use InvalidArgumentException;
+use MongoDB\BSON\UTCDateTime;
 use PhpSoftBox\MongoDb\Query\PipelineBuilder;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversMethod;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use const DATE_ATOM;
+
+#[CoversClass(PipelineBuilder::class)]
+#[CoversMethod(PipelineBuilder::class, 'match')]
+#[CoversMethod(PipelineBuilder::class, 'stage')]
 final class PipelineBuilderTest extends TestCase
 {
     /**
@@ -74,5 +84,25 @@ final class PipelineBuilderTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         new PipelineBuilder()->unwind('   ');
+    }
+
+    /**
+     * Проверим, что даты в стадиях pipeline приводятся к UTCDateTime в UTC.
+     *
+     * @see PipelineBuilder::match()
+     * @see PipelineBuilder::stage()
+     * @see PipelineBuilder::build()
+     */
+    #[Test]
+    public function matchConvertsDatesToUtcDateTime(): void
+    {
+        $pipeline = new PipelineBuilder()
+            ->match(['created_at' => ['$gte' => new DateTimeImmutable('2026-04-23T12:00:00+03:00')]])
+            ->build();
+
+        $from = $pipeline[0]['$match']['created_at']['$gte'];
+
+        $this->assertInstanceOf(UTCDateTime::class, $from);
+        $this->assertSame('2026-04-23T09:00:00+00:00', $from->toDateTimeImmutable()->format(DATE_ATOM));
     }
 }

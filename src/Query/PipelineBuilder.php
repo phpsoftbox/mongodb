@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace PhpSoftBox\MongoDb\Query;
 
 use InvalidArgumentException;
+use PhpSoftBox\MongoDb\Bson\DateTimeConverter;
 
 use function array_values;
 use function is_string;
 use function trim;
 
+/**
+ * `DateTimeInterface` в стадиях приводится к `UTCDateTime`, чтобы сравнение шло с датами в документах.
+ */
 final class PipelineBuilder
 {
     /**
@@ -116,6 +120,9 @@ final class PipelineBuilder
         if ($stage === []) {
             throw new InvalidArgumentException('Mongo pipeline stage must not be empty.');
         }
+
+        /** @var array<string, mixed> $stage */
+        $stage = DateTimeConverter::normalize($stage);
 
         $this->stages[] = $stage;
 
