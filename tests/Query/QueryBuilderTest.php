@@ -51,7 +51,7 @@ final class QueryBuilderTest extends TestCase
 
         $this->assertSame([
             ['$match' => ['price' => ['$gte' => 100]]],
-            ['$sort'  => ['price' => -1]],
+            ['$sort' => ['price' => -1]],
             ['$limit' => 10],
             ['$group' => ['_id' => '$brand', 'total' => ['$sum' => 1]]],
         ], $query->buildAggregatePipeline());

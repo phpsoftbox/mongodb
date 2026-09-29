@@ -25,9 +25,9 @@ final class PipelineBuilderTest extends TestCase
 
         $this->assertSame([
             ['$match' => ['company_id' => 10]],
-            ['$sort'    => ['created_at' => -1]],
-            ['$skip'    => 20],
-            ['$limit'   => 10],
+            ['$sort' => ['created_at' => -1]],
+            ['$skip' => 20],
+            ['$limit' => 10],
             ['$project' => ['_id' => 1, 'name' => 1]],
         ], $pipeline);
     }
