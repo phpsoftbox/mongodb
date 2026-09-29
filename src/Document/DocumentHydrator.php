@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace PhpSoftBox\MongoDb\Document;
 
 use BackedEnum;
+use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
+use DateTimeZone;
+use PhpSoftBox\MongoDb\Bson\DateTimeConverter;
 use PhpSoftBox\MongoDb\Collection\DocumentCollection;
 use ReflectionClass;
 use ReflectionNamedType;
@@ -14,12 +17,23 @@ use ReflectionProperty;
 
 use function array_key_exists;
 use function get_object_vars;
+use function is_a;
 use function is_array;
 use function is_subclass_of;
 use function method_exists;
 
+/**
+ * Даты (`DateTimeInterface`, в т.ч. `DatePoint`) записываются как `UTCDateTime` с точностью до миллисекунд.
+ * При чтении свойство с типом даты получает значение из `UTCDateTime` или строки (старый формат ATOM)
+ * в таймзоне `$timezone`; без неё — в `date_default_timezone_get()` на момент гидрации.
+ */
 final class DocumentHydrator implements DocumentHydratorInterface
 {
+    public function __construct(
+        private readonly ?DateTimeZone $timezone = null,
+    ) {
+    }
+
     public function hydrate(string $documentClass, array $data, array $fieldMap = []): object
     {
         $reflection = new ReflectionClass($documentClass);
@@ -93,8 +107,8 @@ final class DocumentHydrator implements DocumentHydratorInterface
             };
         }
 
-        if ($typeName === DateTimeImmutable::class && !($value instanceof DateTimeImmutable)) {
-            return new DateTimeImmutable((string) $value);
+        if (is_a($typeName, DateTimeInterface::class, true)) {
+            return $this->castToDateTime($typeName, $value);
         }
 
         if ($value instanceof $typeName) {
@@ -109,6 +123,25 @@ final class DocumentHydrator implements DocumentHydratorInterface
         return $value;
     }
 
+    /**
+     * @param class-string<DateTimeInterface> $typeName
+     */
+    private function castToDateTime(string $typeName, mixed $value): DateTimeInterface
+    {
+        $dateTime = DateTimeConverter::toDateTime($value, $this->timezone);
+
+        if ($typeName === DateTimeInterface::class || $typeName === DateTimeImmutable::class) {
+            return $dateTime;
+        }
+
+        // DateTime, DatePoint и другие наследники: createFromInterface() возвращает экземпляр вызванного класса.
+        if (is_a($typeName, DateTimeImmutable::class, true) || is_a($typeName, DateTime::class, true)) {
+            return $typeName::createFromInterface($dateTime);
+        }
+
+        return $dateTime;
+    }
+
     private function normalizeValue(mixed $value): mixed
     {
         if ($value instanceof BackedEnum) {
@@ -116,7 +149,7 @@ final class DocumentHydrator implements DocumentHydratorInterface
         }
 
         if ($value instanceof DateTimeInterface) {
-            return $value->format(DateTimeInterface::ATOM);
+            return DateTimeConverter::toUtcDateTime($value);
         }
 
         if (is_array($value)) {

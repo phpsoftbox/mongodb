@@ -7,7 +7,9 @@ namespace PhpSoftBox\MongoDb\Tests\Repository;
 use DateTimeImmutable;
 use PhpSoftBox\MongoDb\Configurator\MongoFactory;
 use PhpSoftBox\MongoDb\Connection\MongoConnectionManager;
+use PhpSoftBox\MongoDb\Query\QueryBuilder;
 use PhpSoftBox\MongoDb\Repository\DocumentRepository;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 use function sprintf;
@@ -82,6 +84,28 @@ final class DocumentRepositoryTest extends TestCase
         $this->assertSame('2026-04-23T10:30:00+00:00', $loaded->createdAt->format(DateTimeImmutable::ATOM));
 
         $manager->collection('products_typed_test')->drop();
+    }
+
+    /**
+     * Проверяет, что фильтр из QueryBuilder::whereEq с операторным массивом из ввода не находит чужие документы.
+     *
+     * @see DocumentRepository::findMany()
+     * @see QueryBuilder::whereEq()
+     */
+    #[Test]
+    public function whereEqFilterDoesNotApplyInjectedOperator(): void
+    {
+        $manager = $this->manager();
+        $repo    = new DocumentRepository($manager, 'tokens_injection_test');
+
+        $repo->insertOne(['_id' => 'k1', 'token' => 'secret']);
+
+        // Значение как из JSON-тела запроса: {"token": {"$ne": ""}}.
+        $filter = new QueryBuilder()->whereEq('token', ['$ne' => ''])->buildFilter();
+
+        $this->assertCount(0, $repo->findMany($filter));
+
+        $manager->database()->drop();
     }
 
     private function manager(): MongoConnectionManager

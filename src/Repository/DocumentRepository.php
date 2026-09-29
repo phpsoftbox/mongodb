@@ -8,6 +8,7 @@ use MongoDB\BSON\UTCDateTime;
 use MongoDB\Collection;
 use MongoDB\Model\BSONArray;
 use MongoDB\Model\BSONDocument;
+use PhpSoftBox\MongoDb\Bson\DateTimeConverter;
 use PhpSoftBox\MongoDb\Collection\DocumentCollection;
 use PhpSoftBox\MongoDb\Connection\MongoConnectionManagerInterface;
 use PhpSoftBox\MongoDb\Document\DocumentHydrator;
@@ -16,6 +17,10 @@ use PhpSoftBox\MongoDb\Document\DocumentHydratorInterface;
 use function is_array;
 
 /**
+ * Даты пишутся как `UTCDateTime`: `DateTimeInterface` в фильтрах, update, pipeline и документах-массивах приводится
+ * автоматически. При чтении `UTCDateTime` становится `DateTimeImmutable` в `date_default_timezone_get()`
+ * (для typed-документов — в таймзоне гидратора).
+ *
  * @template TDocument of array<string, mixed>|object
  */
 final class DocumentRepository
@@ -45,7 +50,7 @@ final class DocumentRepository
      */
     public function findOne(array $filter = [], array $options = []): mixed
     {
-        $document = $this->collection()->findOne($filter, $options);
+        $document = $this->collection()->findOne($this->bson($filter), $options);
         if ($document === null) {
             return null;
         }
@@ -61,7 +66,7 @@ final class DocumentRepository
      */
     public function findMany(array $filter = [], array $options = []): DocumentCollection
     {
-        $cursor = $this->collection()->find($filter, $options);
+        $cursor = $this->collection()->find($this->bson($filter), $options);
         $items  = [];
         foreach ($cursor as $document) {
             $items[] = $this->fromDocument($this->normalizeDocument($document));
@@ -77,7 +82,7 @@ final class DocumentRepository
      */
     public function aggregate(array $pipeline, array $options = []): DocumentCollection
     {
-        $cursor = $this->collection()->aggregate($pipeline, $options);
+        $cursor = $this->collection()->aggregate($this->bson($pipeline), $options);
         $items  = [];
         foreach ($cursor as $document) {
             $items[] = $this->fromDocument($this->normalizeDocument($document));
@@ -100,7 +105,7 @@ final class DocumentRepository
      */
     public function replaceOne(array $filter, array|object $document, array $options = []): mixed
     {
-        return $this->collection()->replaceOne($filter, $this->toDocument($document), $options);
+        return $this->collection()->replaceOne($this->bson($filter), $this->toDocument($document), $options);
     }
 
     /**
@@ -118,7 +123,7 @@ final class DocumentRepository
      */
     public function updateOne(array $filter, array $update, array $options = []): mixed
     {
-        return $this->collection()->updateOne($filter, $update, $options);
+        return $this->collection()->updateOne($this->bson($filter), $this->bson($update), $options);
     }
 
     /**
@@ -127,7 +132,7 @@ final class DocumentRepository
      */
     public function updateMany(array $filter, array $update, array $options = []): mixed
     {
-        return $this->collection()->updateMany($filter, $update, $options);
+        return $this->collection()->updateMany($this->bson($filter), $this->bson($update), $options);
     }
 
     /**
@@ -135,7 +140,7 @@ final class DocumentRepository
      */
     public function deleteOne(array $filter, array $options = []): mixed
     {
-        return $this->collection()->deleteOne($filter, $options);
+        return $this->collection()->deleteOne($this->bson($filter), $options);
     }
 
     /**
@@ -143,7 +148,7 @@ final class DocumentRepository
      */
     public function deleteMany(array $filter, array $options = []): mixed
     {
-        return $this->collection()->deleteMany($filter, $options);
+        return $this->collection()->deleteMany($this->bson($filter), $options);
     }
 
     /**
@@ -152,7 +157,7 @@ final class DocumentRepository
      */
     public function count(array $filter = [], array $options = []): int
     {
-        return $this->collection()->countDocuments($filter, $options);
+        return $this->collection()->countDocuments($this->bson($filter), $options);
     }
 
     /**
@@ -199,7 +204,7 @@ final class DocumentRepository
         }
 
         if ($value instanceof UTCDateTime) {
-            return $value->toDateTimeImmutable();
+            return DateTimeConverter::toDateTime($value);
         }
 
         if (is_array($value)) {
@@ -215,13 +220,26 @@ final class DocumentRepository
     }
 
     /**
+     * Приводит `DateTimeInterface` в фильтре, update, pipeline или документе-массиве к `UTCDateTime`.
+     *
+     * @template T of array
+     * @param T $value
+     * @return T
+     */
+    private function bson(array $value): array
+    {
+        /** @var T */
+        return DateTimeConverter::normalize($value);
+    }
+
+    /**
      * @param array<string, mixed>|object $document
      * @return array<string, mixed>
      */
     private function toDocument(array|object $document): array
     {
         if (is_array($document)) {
-            return $document;
+            return $this->bson($document);
         }
 
         return $this->hydrator->extract($document, $this->fieldMap);

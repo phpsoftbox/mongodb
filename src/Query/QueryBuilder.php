@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace PhpSoftBox\MongoDb\Query;
 
+use DateTimeInterface;
 use InvalidArgumentException;
+use PhpSoftBox\MongoDb\Bson\DateTimeConverter;
 
 use function array_values;
+use function sprintf;
+use function str_starts_with;
 use function trim;
 
 /**
  * Lightweight query builder for MongoDB find/aggregate operations.
+ *
+ * `DateTimeInterface` в условиях и стадиях приводится к `UTCDateTime`, чтобы сравнение шло с датами в документах.
  */
 final class QueryBuilder
 {
@@ -46,6 +52,9 @@ final class QueryBuilder
             return $this;
         }
 
+        /** @var array<string, mixed> $filter */
+        $filter = DateTimeConverter::normalize($filter);
+
         if ($this->filter === []) {
             $this->filter = $filter;
 
@@ -59,9 +68,13 @@ final class QueryBuilder
         return $this;
     }
 
+    /**
+     * Условие равенства через `$eq`: массив из пользовательского ввода (`['$ne' => '']`) сравнивается как значение,
+     * а не разворачивается в операторы.
+     */
     public function whereEq(string $field, mixed $value): self
     {
-        return $this->whereOperator($field, null, $value);
+        return $this->whereOperator($field, '$eq', $value);
     }
 
     public function whereNe(string $field, mixed $value): self
@@ -77,22 +90,22 @@ final class QueryBuilder
         return $this->whereOperator($field, '$in', array_values($values));
     }
 
-    public function whereGt(string $field, int|float $value): self
+    public function whereGt(string $field, int|float|DateTimeInterface $value): self
     {
         return $this->whereOperator($field, '$gt', $value);
     }
 
-    public function whereGte(string $field, int|float $value): self
+    public function whereGte(string $field, int|float|DateTimeInterface $value): self
     {
         return $this->whereOperator($field, '$gte', $value);
     }
 
-    public function whereLt(string $field, int|float $value): self
+    public function whereLt(string $field, int|float|DateTimeInterface $value): self
     {
         return $this->whereOperator($field, '$lt', $value);
     }
 
-    public function whereLte(string $field, int|float $value): self
+    public function whereLte(string $field, int|float|DateTimeInterface $value): self
     {
         return $this->whereOperator($field, '$lte', $value);
     }
@@ -147,6 +160,9 @@ final class QueryBuilder
         if ($stage === []) {
             return $this;
         }
+
+        /** @var array<string, mixed> $stage */
+        $stage = DateTimeConverter::normalize($stage);
 
         $this->customStages[] = $stage;
 
@@ -221,15 +237,16 @@ final class QueryBuilder
         return $pipeline;
     }
 
-    private function whereOperator(string $field, ?string $operator, mixed $value): self
+    private function whereOperator(string $field, string $operator, mixed $value): self
     {
         $field = trim($field);
         if ($field === '') {
             throw new InvalidArgumentException('Mongo query field must be non-empty string.');
         }
 
-        if ($operator === null) {
-            return $this->where([$field => $value]);
+        // Имя поля с `$` — оператор верхнего уровня (`$where`, `$expr`), а не поле документа.
+        if (str_starts_with($field, '$')) {
+            throw new InvalidArgumentException(sprintf('Mongo query field must not start with "$": %s.', $field));
         }
 
         return $this->where([$field => [$operator => $value]]);

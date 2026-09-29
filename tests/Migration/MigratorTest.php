@@ -23,7 +23,7 @@ final class MigratorTest extends TestCase
      */
     public function testMigrateAppliesOnlyPendingMigrations(): void
     {
-        $mongo = $this->createMock(MongoConnectionManagerInterface::class);
+        $mongo = $this->createStub(MongoConnectionManagerInterface::class);
         $store = new InMemoryMigrationStateStore(['001_create_cache']);
 
         $m001 = new FakeMigration('001_create_cache');
@@ -46,7 +46,7 @@ final class MigratorTest extends TestCase
      */
     public function testNumericVersionsRemainStringsAcrossMigrateAndRollback(): void
     {
-        $mongo = $this->createMock(MongoConnectionManagerInterface::class);
+        $mongo = $this->createStub(MongoConnectionManagerInterface::class);
         $store = new InMemoryMigrationStateStore(['20260521143000']);
 
         $first = new FakeMigration('20260521143000');
@@ -78,7 +78,7 @@ final class MigratorTest extends TestCase
      */
     public function testRollbackAppliesStepsFromLatest(): void
     {
-        $mongo = $this->createMock(MongoConnectionManagerInterface::class);
+        $mongo = $this->createStub(MongoConnectionManagerInterface::class);
         $store = new InMemoryMigrationStateStore([
             '001_create_cache',
             '002_create_indexes',
@@ -104,7 +104,7 @@ final class MigratorTest extends TestCase
      */
     public function testRollbackWithZeroStepsReturnsEmptyResult(): void
     {
-        $mongo = $this->createMock(MongoConnectionManagerInterface::class);
+        $mongo = $this->createStub(MongoConnectionManagerInterface::class);
         $store = new InMemoryMigrationStateStore(['001_create_cache']);
 
         $m001     = new FakeMigration('001_create_cache');
@@ -121,7 +121,7 @@ final class MigratorTest extends TestCase
      */
     public function testRejectsDuplicateMigrationVersions(): void
     {
-        $mongo = $this->createMock(MongoConnectionManagerInterface::class);
+        $mongo = $this->createStub(MongoConnectionManagerInterface::class);
         $store = new InMemoryMigrationStateStore();
 
         $migrator = new Migrator($mongo, $store);
