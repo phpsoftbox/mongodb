@@ -7,6 +7,8 @@ namespace PhpSoftBox\MongoDb\Query;
 use InvalidArgumentException;
 
 use function array_values;
+use function sprintf;
+use function str_starts_with;
 use function trim;
 
 /**
@@ -59,9 +61,13 @@ final class QueryBuilder
         return $this;
     }
 
+    /**
+     * Условие равенства через `$eq`: массив из пользовательского ввода (`['$ne' => '']`) сравнивается как значение,
+     * а не разворачивается в операторы.
+     */
     public function whereEq(string $field, mixed $value): self
     {
-        return $this->whereOperator($field, null, $value);
+        return $this->whereOperator($field, '$eq', $value);
     }
 
     public function whereNe(string $field, mixed $value): self
@@ -221,15 +227,16 @@ final class QueryBuilder
         return $pipeline;
     }
 
-    private function whereOperator(string $field, ?string $operator, mixed $value): self
+    private function whereOperator(string $field, string $operator, mixed $value): self
     {
         $field = trim($field);
         if ($field === '') {
             throw new InvalidArgumentException('Mongo query field must be non-empty string.');
         }
 
-        if ($operator === null) {
-            return $this->where([$field => $value]);
+        // Имя поля с `$` — оператор верхнего уровня (`$where`, `$expr`), а не поле документа.
+        if (str_starts_with($field, '$')) {
+            throw new InvalidArgumentException(sprintf('Mongo query field must not start with "$": %s.', $field));
         }
 
         return $this->where([$field => [$operator => $value]]);

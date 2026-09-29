@@ -23,6 +23,9 @@
         "phpsoftbox/cs-fixer": "^1.2.1",
         "phpunit/phpunit": "^13.3"
     },
+    "suggest": {
+        "phpsoftbox/cli-app": "Required for mongo:migrate, mongo:migrate:rollback and mongo:migrate:make commands (MongoCommandProvider)."
+    },
     "autoload": {
         "psr-4": {
             "PhpSoftBox\\MongoDb\\": "src/"

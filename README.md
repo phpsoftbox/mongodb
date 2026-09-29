@@ -68,6 +68,11 @@ $query = (new QueryBuilder())
 $cursor = $collection->find($query->buildFilter(), $query->buildFindOptions());
 ```
 
+`whereEq` собирает условие через `$eq`: значение из пользовательского ввода, даже массив вида `['$ne' => '']`, сравнивается
+как значение и не превращается в оператор. Имя поля, начинающееся с `$` (`$where`, `$expr`), отклоняется
+`InvalidArgumentException`. Фильтры, переданные массивом в `where()`, `DocumentRepository` или `Collection` напрямую,
+не проверяются — пользовательские значения в них подставляйте через `whereEq`/`whereIn` или явный `$eq`.
+
 ## PipelineBuilder
 
 ```php

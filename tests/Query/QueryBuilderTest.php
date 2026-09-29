@@ -6,8 +6,13 @@ namespace PhpSoftBox\MongoDb\Tests\Query;
 
 use InvalidArgumentException;
 use PhpSoftBox\MongoDb\Query\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversMethod;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(QueryBuilder::class)]
+#[CoversMethod(QueryBuilder::class, 'whereEq')]
 final class QueryBuilderTest extends TestCase
 {
     /**
@@ -25,7 +30,7 @@ final class QueryBuilderTest extends TestCase
 
         $this->assertSame([
             '$and' => [
-                ['company_id' => 10],
+                ['company_id' => ['$eq' => 10]],
                 ['status' => ['$in' => ['new', 'done']]],
             ],
         ], $query->buildFilter());
@@ -73,5 +78,32 @@ final class QueryBuilderTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         new QueryBuilder()->whereEq('   ', 1);
+    }
+
+    /**
+     * Проверяет, что массив с операторами из пользовательского ввода в whereEq остаётся значением под `$eq`.
+     *
+     * @see QueryBuilder::whereEq()
+     * @see QueryBuilder::buildFilter()
+     */
+    #[Test]
+    public function whereEqKeepsOperatorArrayAsValue(): void
+    {
+        $query = new QueryBuilder()->whereEq('token', ['$ne' => '']);
+
+        $this->assertSame(['token' => ['$eq' => ['$ne' => '']]], $query->buildFilter());
+    }
+
+    /**
+     * Проверяет, что имя поля с `$` (оператор верхнего уровня вроде `$where`) отклоняется.
+     *
+     * @see QueryBuilder::whereEq()
+     */
+    #[Test]
+    public function rejectsOperatorAsFieldName(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new QueryBuilder()->whereEq('$where', 'sleep(1000)');
     }
 }
